@@ -126,3 +126,12 @@ Mahiro:
     license: MIT
     tags:
     - parameters
+
+LoraBlockWeights:
+    author: kostenickj
+    description: TODO.
+    url: https://github.com/kostenickj/Lora-Block-Weights-Swarm
+    license: MIT
+    tags:
+    - parameters
+
