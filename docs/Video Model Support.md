@@ -28,6 +28,24 @@
 - All generations are done on the base model of the relevant class, not on any finetune/lora/etc. Finetunes are likely to significantly change the qualitative capabilities, but unlikely to significantly change general ability to understand and follow prompts.
 - At time of writing, Hunyuan Video is the only properly good model. LTXV is really fast though.
 
+## Basic Usage
+
+### Text-To-Video Models
+
+- Select the video model in the usual `Models` sub-tab, and configure parameters as usual, and hit Generate.
+- The `Text To Video` parameter group will be available to configure video-specific parameters.
+
+### Image-To-Video Models
+
+- Select a normal model as the base in the `Models` sub-tab, not your video model. Eg SDXL or Flux.
+- Select the video model under the `Image To Video` parameter group.
+- Generate as normal - the image model will generate an image, then the video model will turn it into a video.
+- If you want a raw/external image as your input:
+    - Use the `Init Image` parameter group, upload your image there
+    - Set `Init Image Creativity` to 0
+    - The image model will be skipped entirely
+    - You can use the `Res` button next to your image to copy the resolution in (otherwise your image may be stretched or squished)
+
 # Video Models
 
 ## Stable Video Diffusion
@@ -202,22 +220,37 @@
 
 ## Wan 2.1
 
+![wan21_14b](https://github.com/user-attachments/assets/17ace901-bc5f-48d0-ab01-ed8984a1b1dc)
+
+*(Warn 2.1 - 14B Text2Video)*
+
 ![wan21_13b](https://github.com/user-attachments/assets/51c40a08-9a05-4553-9785-67ae4fe8b2ac)
 
 *(Wan 2.1 - 1.3B Text2Video)*
 
 ### Wan 2.1 Install
 
-- [Wan 2.1](https://huggingface.co/Wan-AI/Wan2.1-T2V-1.3B), a video model series from Alibaba, has initial support in SwarmUI.
-    - Currently just Text2Video, Image2Video soon.
+- [Wan 2.1](https://huggingface.co/Wan-AI/Wan2.1-T2V-1.3B), a video model series from Alibaba, is supported in SwarmUI.
+    - Supports separate models for Text2Video or Image2Video.
 - Download the comfy-format Wan model from <https://huggingface.co/Comfy-Org/Wan_2.1_ComfyUI_repackaged/tree/main/split_files/diffusion_models>
-    - Pick either 1.3B (small) model, or 14B (large) model
-    - the 14B versions are 10x larger and require around 10x more VRAM, only high end systems can handle 14B fully
+    - Use the `fp8` models, not `bf16`
+    - For Text2Video, pick either 1.3B (small) model, or 14B (large) model
+    - For Image2Video, pick either 480p (640x640 res) or 720p (960x960 res) model
+        - These are not autodetected separately, 480p is assumed.
+        - For 720p variant, you will want to click the `☰` hamburger menu on the model, then `Edit Metadata`, and set the `Resolution` to `960x960`
+        - The 720p model isn't bigger, it just supports higher resolutions. Subjective comments say the higher resolution isn't worth the performance loss.
+    - the 1.3B model is very small and can run on almost any modern GPU
+    - the 14B versions are 10x larger and require around 10x more VRAM, requires nvidia xx90 tier models to run at decent speed
     - save to `diffusion_models`
+- Or GGUF format for reduced VRAM requirements
+    - For T2V 14B <https://huggingface.co/city96/Wan2.1-T2V-14B-gguf/tree/main>
+    - For I2V 480p <https://huggingface.co/city96/Wan2.1-I2V-14B-480P-gguf/tree/main>
+    - For I2V 720p <https://huggingface.co/city96/Wan2.1-I2V-14B-720P-gguf/tree/main>
+    - save to `diffusion_models`
+    - click the `☰` hamburger menu on the model, then `Edit Metadata`, and set the `Architecture` to whichever is correct for the model (eg `Wan 2.1 Text2Video 14B`)
 - The text encoder is `umt5-xxl` ("UniMax" T5 from Google), not the same T5-XXL used by other models.
     - It will be automatically downloaded.
 - The VAE will be automatically downloaded.
-- At time of writing, support is very primitive. On the 1.3B will work, on modern hardware. This is a temporary software limitation and will be resolved soon.
 
 ### Wan 2.1 Parameters
 
@@ -228,12 +261,21 @@
 - **Resolution:** The models are trained for `832x480`, which is a 16:9 equivalent for `640x640`
     - the 14B models can also do `1280x720`, which is a 16:9 equivalent for `960x960`
     - Other resolutions seem to work fine. Even the 1.3B, which is not trained for 960, can technically still do 960 just with a quality drop as it gets too large.
-- **Frame Count (Length):** you can select pretty freely, different values work fine. If unspecified, will default to 49 (3 seconds).
+        - As a vid2vid gen, the model seem to be very good at generating very high res directly.
+- **Frame Count (Length):** you can select pretty freely, different values work fine. If unspecified, will default to `81` (5 seconds).
     - Use 17 for one second, 33 for two, 49 for three, 65 for 4, 81 for 5.
     - Higher frame counts above 81 seem to become distorted - still work but quality degrades and glitching appears.
+    - The Text2Video models seem to favor 81 frames (5 seconds) and exhibit some signs of quality degradation at very low values, the Image2Video models are much more malleable
 - **Steps:** Standard, eg Steps=20, is fine. Changing this value works broadly as expected with other models.
-- **CFG Scale:** Standard CFG ranges are fine. Official recommended CFG is 6, but you can play with it.
+    - Slightly higher (25 or 30) is probably better for small detail quality
+- **CFG Scale:** Standard CFG ranges are fine. Official recommended CFG is `6`, but you can play with it.
+    - Image2Video models may work better at lower CFGs, eg `4`. High CFGs will produce aggressive shifts in lighting.
 - **Sampler and Scheduler:** Standard, eg Euler + Simple
     - You can experiment with changing these around, some may be better than others
-- **Sigma Shift:** range of 8 to 12 suggested. Default is 8.
+- **Sigma Shift:** range of 8 to 12 suggested. Default is `8`.
 - **Performance:** To be filled in once optimizations are complete.
+    - If you see generations completing but then freezing or dying at the end, the advanced `VAE Tiling` parameters may help fix that.
+    - The Image2Video models are much more performance-intensive than the Text2Video models
+    - To run faster, use a "HighRes Fix" style setup, there's a guide to that here: https://www.reddit.com/r/StableDiffusion/comments/1j0znur/run_wan_faster_highres_fix_in_2025/
+- **Quality:**
+    - The Wan models sometimes produce glitched content on the first or last few frames - under Advanced->`Other Fixes`->you can adjust `Trim Video Start Frames` (and `End`) to a small number (1 to 4) to cut the first/last few frames to dodge this.
